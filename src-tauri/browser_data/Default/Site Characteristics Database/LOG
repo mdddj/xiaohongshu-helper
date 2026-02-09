@@ -1,0 +1,4 @@
+2026/02/04-16:40:10.606 7f206 Reusing MANIFEST /Users/ldd/ai-projects/xiaohongshu-helper/src-tauri/browser_data/Default/Site Characteristics Database/MANIFEST-000001
+2026/02/04-16:40:10.608 7f206 Recovering log #3
+2026/02/04-16:40:10.608 7f206 (ignoring error) /Users/ldd/ai-projects/xiaohongshu-helper/src-tauri/browser_data/Default/Site Characteristics Database/000003.log: dropping 223 bytes; Corruption: checksum mismatch
+2026/02/04-16:40:10.608 7f206 Reusing old log /Users/ldd/ai-projects/xiaohongshu-helper/src-tauri/browser_data/Default/Site Characteristics Database/000003.log 

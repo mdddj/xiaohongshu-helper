@@ -1,0 +1,66 @@
+[package]
+name = "xiaohongshu-helper"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "xiaohongshu_helper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+headless_chrome = { git = "https://github.com/rust-headless-chrome/rust-headless-chrome", features = [
+    "fetch",
+] }
+env_logger = "0.11.8"
+log = "0.4.29"
+chrono = "0.4.43"
+tauri-plugin-sql = "2.3.2"
+directories = "6.0.0"
+window-vibrancy = "0.7.1"
+tauri-plugin-shell = "2.3.5"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-dialog = "2"
+dirs = "6.0.0"
+lazy_static = "1.5.0"
+sqlx = { version = "0.8.6", features = [
+    "sqlite",
+    "runtime-tokio",
+    "macros",
+    "chrono",
+] }
+reqwest = { version = "0.13.1", features = ["json"] }
+scraper = "0.25.0"
+base64 = "0.22.1"
+anyhow = "1.0"
+rand = "0.9.0"
+tysm = "0.15"
+schemars = "1"
+# serde is already v1 but we ensure features here if needed, usually it's already there.
+# Checking existing serde line: serde = { version = "1", features = ["derive"] }
+# It's already correct.
+
+axum = { version = "0.8", features = ["macros"] }
+tokio-util = "0.7"
+rmcp = { version = "0.14", features = [
+    "server",
+    "macros",
+    "transport-streamable-http-server",
+] }
+salvo = { version = "0.89", features = ["oapi", "cors", "jwt-auth"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }
+sysinfo = "0.38" # 请检查最新版本
