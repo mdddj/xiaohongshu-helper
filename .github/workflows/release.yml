@@ -59,7 +59,31 @@ jobs:
         with:
           tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version
           releaseName: "xiaohongshu-helper v__VERSION__"
-          releaseBody: "See the assets below to download and install this version."
+          releaseBody: |
+            ### 🚀 下载指南 / Download Instructions
+
+            | 操作系统 (OS) | 安装包类型 (Package) | 说明 (Note) |
+            | :--- | :--- | :--- |
+            | **macOS (Apple Silicon)** | `.dmg` (aarch64) | 适用于 M1/M2/M3 等芯片 |
+            | **macOS (Intel)** | `.dmg` (x64) | 适用于 Intel 芯片的 Mac |
+            | **Windows** | `.exe` / `.msi` | 建议使用 Setup.exe 自动安装 |
+            | **Linux** | `.AppImage` / `.deb` | 跨发行版建议使用 AppImage |
+
+            ---
+
+            ### 🛠️ 常见问题 (Troubleshooting) - macOS
+
+            如果您在 macOS 上打开应用时提示 **“无法打开，因为苹果无法检查其是否包含恶意软件”** 或 **“移动到废纸篓”**，请尝试执行以下命令：
+
+            1. 打开 **终端 (Terminal)**。
+            2. 输入以下命令并回车（可能需要确认开机密码）：
+               ```bash
+               sudo xattr -rd com.apple.quarantine "/Applications/xiaohongshu-helper.app"
+               ```
+            3. 重新尝试打开应用。
+
+            ---
+            *自动发布的预览版本。如有问题请反馈。*
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
