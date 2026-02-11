@@ -125,6 +125,7 @@ export const MCPView = () => {
         { name: 'submit_code', desc: '提交验证码完成账号绑定' },
         { name: 'list_users', desc: '获取系统中已绑定的用户列表' },
         { name: 'get_user_info', desc: '根据用户名或手机号获取指定用户信息' },
+        { name: 'switch_account', desc: '切换到指定手机号的账号进行后续操作' },
         { name: 'publish_post', desc: '发布笔记到小红书' },
         { name: 'validate_login_status', desc: '验证指定手机号的登录状态' },
     ];

@@ -154,6 +154,11 @@ pub struct LogoutArgs {
 }
 
 #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct SwitchAccountArgs {
+    pub phone: String,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StringOutput {
     pub result: String,
 }
@@ -291,6 +296,28 @@ impl XhsMcpTools {
         Ok(Json(StringOutput {
             result: "已退出登录并清理本地数据".to_string(),
         }))
+    }
+
+    #[tool(
+        name = "switch_account",
+        description = "切换到指定手机号的账号进行后续操作"
+    )]
+    async fn switch_account(
+        &self,
+        params: Parameters<SwitchAccountArgs>,
+    ) -> Result<Json<SingleUserOutput>, ErrorData> {
+        let user = auth::find_user(params.0.phone)
+            .await
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        match user {
+            Some(u) => Ok(Json(SingleUserOutput { user: u })),
+            None => Err(ErrorData::new(
+                ErrorCode(-1),
+                "Account not found or not logged in".to_string(),
+                None,
+            )),
+        }
     }
 }
 
