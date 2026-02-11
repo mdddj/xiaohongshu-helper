@@ -64,3 +64,4 @@ rmcp = { version = "0.14", features = [
 salvo = { version = "0.89", features = ["oapi", "cors", "jwt-auth"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 sysinfo = "0.38" # 请检查最新版本
+tower-http = { version = "0.6", features = ["cors"] }

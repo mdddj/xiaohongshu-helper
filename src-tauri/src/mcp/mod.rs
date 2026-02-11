@@ -15,6 +15,7 @@ use std::future::Future;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use tower_http::cors::{Any, CorsLayer}; // 引入 CORS
 
 lazy_static! {
     static ref MCP_SERVER_TOKEN: Mutex<Option<CancellationToken>> = Mutex::new(None);
@@ -272,6 +273,12 @@ pub async fn start_mcp_server(port: u16) -> Result<(), String> {
         cancellation_token: cancel_token.clone(),
     };
 
+    // 配置 CORS 策略
+    let cors = CorsLayer::new()
+        .allow_origin(Any) // 允许任何来源
+        .allow_methods(Any) // 允许任何方法 (GET, POST 等)
+        .allow_headers(Any); // 允许任何 Header
+
     // 创建服务
     let service = StreamableHttpService::new(
         || Ok(XhsMcpTools::new()), // 服务工厂
@@ -279,9 +286,11 @@ pub async fn start_mcp_server(port: u16) -> Result<(), String> {
         config,
     );
     // 使用 Axum
-    let app = axum::Router::new().nest_service("/mcp", service);
+    let app = axum::Router::new()
+        .nest_service("/mcp", service)
+        .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .map_err(|e| e.to_string())?;
 

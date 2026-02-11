@@ -8828,6 +8828,7 @@ dependencies = [
  "tauri-plugin-sql",
  "tokio",
  "tokio-util",
+ "tower-http",
  "tysm",
  "uuid",
  "window-vibrancy 0.7.1",
