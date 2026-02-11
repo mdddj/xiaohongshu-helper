@@ -3,6 +3,7 @@ import {
     Box,
     Typography,
     TextField,
+    Button,
     Paper,
     Chip,
     IconButton,
@@ -25,20 +26,27 @@ import { useAppStore } from '../store';
 export const MCPView = () => {
     const { mcpStatus: status, fetchMcpStatus: fetchStatus } = useAppStore();
     const [port, setPort] = useState(8001);
+    const [token, setToken] = useState('');
     const [copied, setCopied] = useState(false);
+    const [jsonCopied, setJsonCopied] = useState(false);
+    const [tokenCopied, setTokenCopied] = useState(false);
     const [loading, setLoading] = useState(false);
     const [autoStart, setAutoStart] = useState(false);
 
-    const connectionUrl = `http://127.0.0.1:${status.port}/mcp`;
+    const connectionUrl = `http://127.0.0.1:${status.port}${status.token ? `/mcp/${status.token}` : '/mcp'}`;
 
     useEffect(() => {
         // Load settings from localStorage
         const savedAutoStart = localStorage.getItem('mcp_auto_start') === 'true';
         const savedPort = localStorage.getItem('mcp_port');
+        const savedToken = localStorage.getItem('mcp_token');
 
         setAutoStart(savedAutoStart);
         if (savedPort) {
             setPort(parseInt(savedPort));
+        }
+        if (savedToken) {
+            setToken(savedToken);
         }
 
         fetchStatus();
@@ -57,13 +65,19 @@ export const MCPView = () => {
         localStorage.setItem('mcp_port', newPort.toString());
     };
 
+    const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newToken = e.target.value;
+        setToken(newToken);
+        localStorage.setItem('mcp_token', newToken);
+    };
+
     const handleToggle = async () => {
         setLoading(true);
         try {
             if (status.is_running) {
                 await invoke('stop_mcp_server');
             } else {
-                await invoke('start_mcp_server', { port });
+                await invoke('start_mcp_server', { port, token: token || null });
             }
             await fetchStatus();
         } catch (e: any) {
@@ -71,6 +85,33 @@ export const MCPView = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCopyToken = () => {
+        if (status.token) {
+            navigator.clipboard.writeText(status.token);
+            setTokenCopied(true);
+            setTimeout(() => setTokenCopied(false), 2000);
+        }
+    };
+
+    const handleCopyJson = () => {
+        const config = {
+            mcpServers: {
+                "xiaohongshu-helper": {
+                    url: `${connectionUrl}?token=${status.token || ''}`
+                }
+            }
+        };
+        navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+        setJsonCopied(true);
+        setTimeout(() => setJsonCopied(false), 2000);
+    };
+
+    const generateRandomToken = () => {
+        const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        setToken(newToken);
+        localStorage.setItem('mcp_token', newToken);
     };
 
     const handleCopy = () => {
@@ -200,6 +241,73 @@ export const MCPView = () => {
                         </Grid>
                         <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
+                                鉴权 Token (可选)
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <TextField
+                                    fullWidth
+                                    label="Token"
+                                    size="small"
+                                    placeholder="留空则自动生成"
+                                    value={token}
+                                    onChange={handleTokenChange}
+                                    disabled={status.is_running}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                        }
+                                    }}
+                                />
+                                <IconButton
+                                    onClick={generateRandomToken}
+                                    disabled={status.is_running}
+                                    sx={{
+                                        borderRadius: 3,
+                                        bgcolor: 'rgba(255,255,255,0.05)',
+                                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+                                    }}
+                                >
+                                    <Power size={18} />
+                                </IconButton>
+                            </Box>
+                        </Grid>
+                        {status.is_running && status.token && (
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
+                                    当前活动 Token
+                                </Typography>
+                                <Box sx={{
+                                    p: 1,
+                                    pr: 0.5,
+                                    borderRadius: 3,
+                                    bgcolor: 'rgba(0,255,127,0.05)',
+                                    border: '1px solid rgba(0,255,127,0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Typography variant="body2" sx={{
+                                        fontFamily: 'JetBrains Mono, monospace',
+                                        ml: 1.5,
+                                        color: '#00ff7f',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {status.token}
+                                    </Typography>
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleCopyToken}
+                                        sx={{ borderRadius: 2 }}
+                                    >
+                                        {tokenCopied ? <Check size={18} color="#00ff7f" /> : <Shield size={18} color="#00ff7f" />}
+                                    </IconButton>
+                                </Box>
+                            </Grid>
+                        )}
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
                                 连接 URL (SSE)
                             </Typography>
                             <Box sx={{
@@ -274,18 +382,76 @@ export const MCPView = () => {
                 <Box sx={{
                     p: 3,
                     borderRadius: 4,
-                    bgcolor: 'rgba(255,165,0,0.05)',
-                    border: '1px solid rgba(255,165,0,0.1)',
+                    bgcolor: 'rgba(0,255,127,0.05)',
+                    border: '1px solid rgba(0,255,127,0.1)',
                     display: 'flex',
                     gap: 2
                 }}>
-                    <Shield size={24} style={{ color: '#ffa500', flexShrink: 0 }} />
+                    <Shield size={24} style={{ color: '#00ff7f', flexShrink: 0 }} />
                     <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#ffa500', mb: 0.5 }}>安全性警告</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#00ff7f', mb: 0.5 }}>安全鉴权已启用</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-                            MCP SSE (HTTP) 服务目前主要用于本地集成。请勿在受限网络环境外开启此服务，因为它目前不提供额外的鉴权机制。端口号冲突可能导致服务无法启动。
+                            MCP 服务现在要求 Bearer Token 鉴权。连接时请在 Header 中添加: <br />
+                            <code>Authorization: Bearer {'<token>'}</code>
                         </Typography>
                     </Box>
+                </Box>
+
+                {/* Claude Desktop Config */}
+                <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800 }}>Claude Desktop 配置</Typography>
+                    </Stack>
+                    <Paper sx={{
+                        p: 0,
+                        borderRadius: 4,
+                        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        <Box sx={{
+                            px: 2,
+                            py: 1,
+                            bgcolor: 'rgba(255,255,255,0.03)',
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                                claude_desktop_config.json
+                            </Typography>
+                            <Button
+                                size="small"
+                                variant="text"
+                                startIcon={jsonCopied ? <Check size={14} /> : <Copy size={14} />}
+                                onClick={handleCopyJson}
+                                disabled={!status.is_running}
+                                sx={{ height: 24, fontSize: '0.7rem' }}
+                            >
+                                {jsonCopied ? '已复制' : '复制 JSON'}
+                            </Button>
+                        </Box>
+                        <Box sx={{ p: 2, overflowX: 'auto' }}>
+                            <pre style={{
+                                margin: 0,
+                                fontSize: '0.8rem',
+                                fontFamily: 'JetBrains Mono, monospace',
+                                color: status.is_running ? 'inherit' : 'gray'
+                            }}>
+                                {`{
+  "mcpServers": {
+    "xiaohongshu-helper": {
+      "url": "${connectionUrl}"
+    }
+  }
+}`}
+                            </pre>
+                        </Box>
+                    </Paper>
                 </Box>
             </Stack>
         </Box>

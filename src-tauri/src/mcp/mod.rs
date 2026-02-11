@@ -1,7 +1,13 @@
 use crate::auth;
 use crate::automation;
 use crate::model::User;
+use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::middleware::{self, Next};
+use axum::response::Response;
+use axum::routing::get;
 use lazy_static::lazy_static;
+use reqwest::StatusCode;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::StreamableHttpService;
 use rmcp::transport::StreamableHttpServerConfig;
@@ -12,16 +18,18 @@ use rmcp::{
 };
 use serde::{Deserialize, Serialize};
 use std::future::Future;
-use std::time::Duration;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tower_http::cors::{Any, CorsLayer}; // 引入 CORS
+use tower_http::cors::CorsLayer;
+use uuid::Uuid;
 
 lazy_static! {
     static ref MCP_SERVER_TOKEN: Mutex<Option<CancellationToken>> = Mutex::new(None);
     static ref MCP_STATUS: Mutex<McpStatus> = Mutex::new(McpStatus {
         is_running: false,
         port: 0,
+        token: None,
     });
 }
 
@@ -29,6 +37,84 @@ lazy_static! {
 pub struct McpStatus {
     pub is_running: bool,
     pub port: u16,
+    pub token: Option<String>,
+}
+
+// A simple token store
+#[derive(Clone)]
+struct TokenStore {
+    valid_token: Option<String>,
+}
+
+impl TokenStore {
+    fn is_valid(&self, token: &str) -> bool {
+        match &self.valid_token {
+            Some(valid) => valid == token,
+            None => false,
+        }
+    }
+}
+
+// Extract authorization token from headers
+fn extract_token_from_header(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("Authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|auth_header| {
+            auth_header
+                .strip_prefix("Bearer ")
+                .map(|stripped| stripped.to_string())
+        })
+}
+
+// Authorization middleware
+async fn auth_middleware(
+    State(token_store): State<Arc<TokenStore>>,
+    request: axum::extract::Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let headers = request.headers();
+
+    // 1. 优先尝试从 Header 获取 (Bearer)
+    let mut token = extract_token_from_header(headers);
+
+    // 2. 如果 Header 没有，尝试从 Path 获取 (格式: /mcp/TOKEN)
+    if token.is_none() {
+        let path = request.uri().path();
+        // 匹配 /mcp/TOKEN/...
+        if path.starts_with("/mcp/") {
+            let parts: Vec<&str> = path.split('/').collect();
+            // path 是 /mcp/TOKEN 所以 split 结果是 ["", "mcp", "TOKEN"]
+            if parts.len() >= 3 && !parts[2].is_empty() {
+                token = Some(parts[2].to_string());
+            }
+        }
+    }
+
+    // 3. 兜底尝试从 Query 获取
+    if token.is_none() {
+        if let Some(query) = request.uri().query() {
+            let params: std::collections::HashMap<String, String> =
+                serde_urlencoded::from_str(query).unwrap_or_default();
+            token = params.get("token").cloned();
+        }
+    }
+
+    match token {
+        Some(t) if token_store.is_valid(&t) => {
+            // Token is valid, proceed with the request
+            Ok(next.run(request).await)
+        }
+        _ => {
+            // Token is invalid, return 401 error
+            println!(
+                "MCP: Unauthorized access attempt (Method: {}, URI: {})",
+                request.method(),
+                request.uri()
+            );
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, schemars::JsonSchema)]
@@ -251,8 +337,12 @@ impl ServerHandler for XhsMcpTools {
     }
 }
 
+// Health check endpoint
+async fn health_check() -> &'static str {
+    "OK"
+}
 #[tauri::command]
-pub async fn start_mcp_server(port: u16) -> Result<(), String> {
+pub async fn start_mcp_server(port: u16, token: Option<String>) -> Result<(), String> {
     let mut token_lock = MCP_SERVER_TOKEN.lock().await;
     if token_lock.is_some() {
         return Err("MCP server is already running".to_string());
@@ -261,34 +351,28 @@ pub async fn start_mcp_server(port: u16) -> Result<(), String> {
     let cancel_token = CancellationToken::new();
     let cancel_token_for_shutdown = cancel_token.clone();
 
-    // 创建 SSE 服务配置
-    let config = StreamableHttpServerConfig {
-        // SSE 心跳间隔（保持连接活跃）
-        sse_keep_alive: Some(Duration::from_secs(15)),
-        // SSE 重试间隔（用于断线重连）
-        sse_retry: Some(Duration::from_secs(3)),
-        // 启用有状态模式（保持会话）
-        stateful_mode: true,
-        // 取消令牌
-        cancellation_token: cancel_token.clone(),
-    };
-
-    // 配置 CORS 策略
-    let cors = CorsLayer::new()
-        .allow_origin(Any) // 允许任何来源
-        .allow_methods(Any) // 允许任何方法 (GET, POST 等)
-        .allow_headers(Any); // 允许任何 Header
+    // 生成或使用提供的 token
+    let auth_token = token.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let token_store = Arc::new(TokenStore {
+        valid_token: Some(auth_token.clone()),
+    });
 
     // 创建服务
     let service = StreamableHttpService::new(
-        || Ok(XhsMcpTools::new()), // 服务工厂
+        || Ok(XhsMcpTools::new()),
         LocalSessionManager::default().into(),
-        config,
+        StreamableHttpServerConfig::default(),
     );
     // 使用 Axum
     let app = axum::Router::new()
+        .route("/health", get(health_check))
+        // 使用动态路径支持鉴权信息持久化在 URL 中
         .nest_service("/mcp", service)
-        .layer(cors);
+        .layer(middleware::from_fn_with_state(
+            token_store.clone(),
+            auth_middleware,
+        ))
+        .layer(CorsLayer::permissive());
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
@@ -301,6 +385,7 @@ pub async fn start_mcp_server(port: u16) -> Result<(), String> {
     let mut status = MCP_STATUS.lock().await;
     status.is_running = true;
     status.port = port;
+    status.token = Some(auth_token);
     drop(status); // 释放锁
     drop(token_lock); // 释放锁
 
@@ -328,6 +413,7 @@ pub async fn stop_mcp_server() -> Result<(), String> {
     let mut status = MCP_STATUS.lock().await;
     status.is_running = false;
     status.port = 0;
+    status.token = None;
 
     Ok(())
 }

@@ -61,7 +61,7 @@ interface AppState {
     setCurrentUser: (user: User | null) => void;
     users: User[];
     fetchUsers: () => Promise<void>;
-    mcpStatus: { is_running: boolean; port: number };
+    mcpStatus: { is_running: boolean; port: number; token?: string };
     fetchMcpStatus: () => Promise<void>;
     apiStatus: { is_running: boolean; port: number };
     fetchApiStatus: () => Promise<void>;
@@ -103,10 +103,10 @@ export const useAppStore = create<AppState>((set) => ({
             console.error('Failed to fetch users:', e);
         }
     },
-    mcpStatus: { is_running: false, port: 8001 },
+    mcpStatus: { is_running: false, port: 8001, token: undefined },
     fetchMcpStatus: async () => {
         try {
-            const res: { is_running: boolean; port: number } = await invoke('get_mcp_status');
+            const res: { is_running: boolean; port: number; token?: string } = await invoke('get_mcp_status');
             set({ mcpStatus: res });
         } catch (e) {
             console.error('Failed to fetch MCP status', e);

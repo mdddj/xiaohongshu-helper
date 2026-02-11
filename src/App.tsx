@@ -92,12 +92,16 @@ function App() {
     const autoStartMcp = async () => {
       const savedAutoStart = localStorage.getItem('mcp_auto_start') === 'true';
       const savedPort = localStorage.getItem('mcp_port') || '8001';
+      const savedToken = localStorage.getItem('mcp_token');
 
       if (savedAutoStart && !mcpStatus.is_running && !hasAutoStartedMcp) {
         setHasAutoStartedMcp(true);
         setMcpStarting(true);
         try {
-          await invoke('start_mcp_server', { port: parseInt(savedPort) });
+          await invoke('start_mcp_server', {
+            port: parseInt(savedPort),
+            token: savedToken || null
+          });
           await fetchMcpStatus();
         } catch (e) {
           console.error('MCP Auto-start failed:', e);
