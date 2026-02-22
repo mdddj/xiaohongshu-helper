@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, Paper, IconButton, Tooltip, Button } from '@mui/material';
-import { FolderOpen, Trash2, RefreshCw, UploadCloud } from 'lucide-react';
+import { FolderOpen, Trash2, RefreshCw, UploadCloud, Sparkles } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { confirm, message, open } from '@tauri-apps/plugin-dialog';
+import { AnalyzeImageDialog } from './AnalyzeImageDialog';
 
 export const AssetsView = () => {
     const [images, setImages] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [importing, setImporting] = useState(false);
+    const [analyzeImage, setAnalyzeImage] = useState<string | null>(null);
 
     const fetchImages = async () => {
         setLoading(true);
@@ -135,6 +137,27 @@ export const AssetsView = () => {
                                         <Trash2 size={24} />
                                     </IconButton>
                                 </Tooltip>
+
+                                <Tooltip title="AI 智能分析">
+                                    <IconButton
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAnalyzeImage(img);
+                                        }}
+                                        sx={{
+                                            position: 'absolute',
+                                            bottom: 12,
+                                            right: 12,
+                                            p: 1.5,
+                                            bgcolor: 'rgba(255,193,7,0.2)', // 警示色半透明
+                                            color: '#ffc107',
+                                            backdropFilter: 'blur(4px)',
+                                            '&:hover': { bgcolor: '#ffc107', color: '#fff' }
+                                        }}
+                                    >
+                                        <Sparkles size={20} />
+                                    </IconButton>
+                                </Tooltip>
                             </Box>
                         </Box>
                     ))}
@@ -155,6 +178,12 @@ export const AssetsView = () => {
                     </Typography>
                 </Paper>
             )}
+
+            <AnalyzeImageDialog
+                open={!!analyzeImage}
+                onClose={() => setAnalyzeImage(null)}
+                imagePath={analyzeImage || ''}
+            />
         </Box>
     );
 };

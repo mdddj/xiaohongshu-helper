@@ -3,7 +3,9 @@ use crate::storage::get_db_path;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, Row};
 
-use tysm::chat_completions::{ChatClient, ChatMessage, ChatMessageContent, ResponseFormat, Role};
+use tysm::chat_completions::{
+    ChatClient, ChatMessage, ChatMessageContent, ImageUrl, ResponseFormat, Role,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ImageGenerationRequest {
@@ -672,4 +674,66 @@ pub async fn test_model_structured_output(
             })
         }
     }
+}
+
+#[tauri::command]
+pub async fn analyze_local_image(
+    image_path: String,
+    prompt: String,
+    provider: AIProvider,
+    model_name: String,
+) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
+
+    // 读取本地图片文件
+    let image_bytes = std::fs::read(&image_path)
+        .map_err(|e| format!("无法读取图片文件 {}: {}", image_path, e))?;
+
+    // 推断图片的 MIME 类型
+    let extension = std::path::Path::new(&image_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("png")
+        .to_lowercase();
+
+    let mime_type = match extension.as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        _ => "image/png",
+    };
+
+    let base64_image = general_purpose::STANDARD.encode(image_bytes);
+
+    let api_key = provider.api_key;
+    let base_url = provider
+        .base_url
+        .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+
+    let mut url = base_url.clone();
+    if url.ends_with('/') {
+        url.pop();
+    }
+
+    let client = ChatClient::new(api_key, &model_name).with_url(&url);
+
+    let messages = vec![ChatMessage {
+        role: Role::User,
+        content: vec![
+            ChatMessageContent::Text { text: prompt },
+            ChatMessageContent::ImageUrl {
+                image: ImageUrl {
+                    url: format!("data:{};base64,{}", mime_type, base64_image),
+                },
+            },
+        ],
+    }];
+
+    let response = client
+        .chat_with_messages_raw(messages, ResponseFormat::Text)
+        .await
+        .map_err(|e| format!("AI request failed: {}", e))?;
+
+    Ok(response)
 }

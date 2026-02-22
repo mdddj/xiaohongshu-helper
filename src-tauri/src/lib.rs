@@ -91,6 +91,7 @@ pub fn run() {
             ai::test_ai_provider,
             ai::test_model_chat,
             ai::test_model_structured_output,
+            ai::analyze_local_image,
             auth::save_post,
             auth::get_posts,
             auth::delete_post,
