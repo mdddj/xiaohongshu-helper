@@ -128,6 +128,7 @@ export const MCPView = () => {
         { name: 'switch_account', desc: '切换到指定手机号的账号进行后续操作' },
         { name: 'publish_post', desc: '发布笔记到小红书' },
         { name: 'validate_login_status', desc: '验证指定手机号的登录状态' },
+        { name: 'import_network_images', desc: '下载网络图片到本地,并移动到素材库' },
     ];
 
     return (

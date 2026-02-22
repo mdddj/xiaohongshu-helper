@@ -159,6 +159,11 @@ pub struct SwitchAccountArgs {
 }
 
 #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ImportNetworkImagesArgs {
+    pub urls: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StringOutput {
     pub result: String,
 }
@@ -318,6 +323,82 @@ impl XhsMcpTools {
                 None,
             )),
         }
+    }
+
+    #[tool(
+        name = "import_network_images",
+        description = "下载网络图片到本地,并移动到素材库"
+    )]
+    async fn import_network_images(
+        &self,
+        params: Parameters<ImportNetworkImagesArgs>,
+    ) -> Result<Json<StringOutput>, ErrorData> {
+        let urls = params.0.urls;
+        let images_dir = crate::storage::get_images_dir();
+        let client = reqwest::Client::new();
+        let mut count = 0;
+        let mut saved_paths = Vec::new();
+
+        for url_str in urls {
+            let extension = if url_str.to_lowercase().contains(".jpg")
+                || url_str.to_lowercase().contains(".jpeg")
+            {
+                "jpg"
+            } else if url_str.to_lowercase().contains(".webp") {
+                "webp"
+            } else if url_str.to_lowercase().contains(".gif") {
+                "gif"
+            } else {
+                "png"
+            };
+
+            let filename = format!(
+                "net_imported_{}_{}.{}",
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0),
+                uuid::Uuid::new_v4()
+                    .to_string()
+                    .chars()
+                    .take(8)
+                    .collect::<String>(),
+                extension
+            );
+
+            let mut dest_path = images_dir.clone();
+            dest_path.push(filename);
+
+            let response = match client.get(&url_str).send().await {
+                Ok(res) => res,
+                Err(e) => {
+                    println!("MCP: Error downloading {}: {}", url_str, e);
+                    continue;
+                }
+            };
+
+            if response.status().is_success() {
+                if let Ok(bytes) = response.bytes().await {
+                    if let Err(e) = std::fs::write(&dest_path, bytes) {
+                        println!("MCP: Error saving {}: {}", dest_path.display(), e);
+                    } else {
+                        saved_paths.push(dest_path.to_string_lossy().to_string());
+                        count += 1;
+                    }
+                }
+            } else {
+                println!(
+                    "MCP: Error downloading {}, status: {}",
+                    url_str,
+                    response.status()
+                );
+            }
+        }
+
+        Ok(Json(StringOutput {
+            result: format!(
+                "成功导入 {} 张网络图片到素材库. 图片路径: [{}]",
+                count,
+                saved_paths.join(", ")
+            ),
+        }))
     }
 }
 
