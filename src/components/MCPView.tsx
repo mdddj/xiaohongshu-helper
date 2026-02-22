@@ -129,6 +129,7 @@ export const MCPView = () => {
         { name: 'publish_post', desc: '发布笔记到小红书' },
         { name: 'validate_login_status', desc: '验证指定手机号的登录状态' },
         { name: 'import_network_images', desc: '下载网络图片到本地,并移动到素材库' },
+        { name: 'import_local_images', desc: '移动本地电脑的图片到素材库' },
     ];
 
     return (

@@ -164,6 +164,11 @@ pub struct ImportNetworkImagesArgs {
 }
 
 #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ImportLocalImagesArgs {
+    pub paths: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StringOutput {
     pub result: String,
 }
@@ -394,9 +399,65 @@ impl XhsMcpTools {
 
         Ok(Json(StringOutput {
             result: format!(
-                "成功导入 {} 张网络图片到素材库. 图片路径: [{}]",
+                "成功导入 {} 张网络图片到素材库.\n图片路径:\n{}",
                 count,
-                saved_paths.join(", ")
+                saved_paths.join("\n")
+            ),
+        }))
+    }
+
+    #[tool(name = "import_local_images", description = "移动本地图片到素材库")]
+    async fn import_local_images(
+        &self,
+        params: Parameters<ImportLocalImagesArgs>,
+    ) -> Result<Json<StringOutput>, ErrorData> {
+        let paths = params.0.paths;
+        let images_dir = crate::storage::get_images_dir();
+        let mut count = 0;
+        let mut saved_paths = Vec::new();
+
+        for path_str in paths {
+            let source_path = std::path::Path::new(&path_str);
+            if !source_path.exists() {
+                println!("MCP: Error importing {}: file does not exist", path_str);
+                continue;
+            }
+
+            let extension = source_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("png");
+
+            let filename = format!(
+                "imported_{}_{}.{}",
+                chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0),
+                uuid::Uuid::new_v4()
+                    .to_string()
+                    .chars()
+                    .take(8)
+                    .collect::<String>(),
+                extension
+            );
+
+            let mut dest_path = images_dir.clone();
+            dest_path.push(filename);
+
+            match std::fs::copy(source_path, &dest_path) {
+                Ok(_) => {
+                    saved_paths.push(dest_path.to_string_lossy().to_string());
+                    count += 1;
+                }
+                Err(e) => {
+                    println!("MCP: Error copying {}: {}", path_str, e);
+                }
+            }
+        }
+
+        Ok(Json(StringOutput {
+            result: format!(
+                "成功导入 {} 张本地图片到素材库.\n图片路径:\n{}",
+                count,
+                saved_paths.join("\n")
             ),
         }))
     }
