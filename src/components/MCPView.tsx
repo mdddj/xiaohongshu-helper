@@ -130,6 +130,9 @@ export const MCPView = () => {
         { name: 'validate_login_status', desc: '验证指定手机号的登录状态' },
         { name: 'import_network_images', desc: '下载网络图片到本地,并移动到素材库' },
         { name: 'import_local_images', desc: '移动本地电脑的图片到素材库' },
+        { name: 'get_ai_providers', desc: '获取系统配置的所有 AI 模型提供者列表' },
+        { name: 'add_ai_provider', desc: '添加或更新 AI 模型提供者配置' },
+        { name: 'analyze_local_image', desc: '使用视觉大模型分析本地图片文件并总结配文' },
     ];
 
     return (

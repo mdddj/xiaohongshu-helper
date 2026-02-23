@@ -1,6 +1,6 @@
 use crate::auth;
 use crate::automation;
-use crate::model::User;
+use crate::model::{AIProvider, User};
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::middleware::{self, Next};
@@ -181,6 +181,24 @@ pub struct SingleUserOutput {
 #[derive(Serialize, Deserialize, schemars::JsonSchema)]
 pub struct UsersOutput {
     pub users: Vec<User>,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct AddAIProviderArgs {
+    pub provider: AIProvider,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct AnalyzeLocalImageArgs {
+    pub image_path: String,
+    pub prompt: String,
+    pub provider_id: i64,
+    pub model_name: String,
+}
+
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ProvidersOutput {
+    pub providers: Vec<AIProvider>,
 }
 
 #[derive(Clone)]
@@ -460,6 +478,59 @@ impl XhsMcpTools {
                 saved_paths.join("\n")
             ),
         }))
+    }
+
+    #[tool(
+        name = "get_ai_providers",
+        description = "获取系统配置的所有 AI 模型提供者列表"
+    )]
+    async fn get_ai_providers(&self) -> Result<Json<ProvidersOutput>, ErrorData> {
+        let providers = crate::ai::get_ai_providers()
+            .await
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        Ok(Json(ProvidersOutput { providers }))
+    }
+
+    #[tool(name = "add_ai_provider", description = "添加或更新 AI 模型提供者配置")]
+    async fn add_ai_provider(
+        &self,
+        params: Parameters<AddAIProviderArgs>,
+    ) -> Result<Json<StringOutput>, ErrorData> {
+        let id = crate::ai::save_ai_provider(params.0.provider)
+            .await
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+        Ok(Json(StringOutput {
+            result: format!("成功保存 AI 提供者配置，返回记录 ID: {}", id),
+        }))
+    }
+
+    #[tool(
+        name = "analyze_local_image",
+        description = "使用指定 AI 模型提供者的视觉大模型分析本地图片文件并总结配文"
+    )]
+    async fn analyze_local_image_mcp(
+        &self,
+        params: Parameters<AnalyzeLocalImageArgs>,
+    ) -> Result<Json<StringOutput>, ErrorData> {
+        let providers = crate::ai::get_ai_providers()
+            .await
+            .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        let provider = providers
+            .into_iter()
+            .find(|p| p.id == Some(params.0.provider_id))
+            .ok_or_else(|| ErrorData::invalid_request("未找到指定的 AI 提供者", None))?;
+
+        let result = crate::ai::analyze_local_image(
+            params.0.image_path,
+            params.0.prompt,
+            provider,
+            params.0.model_name,
+        )
+        .await
+        .map_err(|e| ErrorData::internal_error(e, None))?;
+
+        Ok(Json(StringOutput { result }))
     }
 }
 
