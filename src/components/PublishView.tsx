@@ -24,6 +24,7 @@ import { AssetSelectorDialog } from './AssetSelectorDialog';
 import { AIPolishDialog } from './AIPolishDialog';
 import { ImagePromptDialog } from './ImagePromptDialog';
 import { TrendsPopover } from './TrendsPopover';
+import { AnalyzeImageDialog } from './AnalyzeImageDialog';
 import {
     aiButtonStyles,
     trendButtonStyles,
@@ -196,6 +197,16 @@ const secondaryIconButtonStyles: SxProps<Theme> = {
     ...trendButtonStyles
 };
 
+const tertiaryIconButtonStyles: SxProps<Theme> = {
+    position: 'absolute',
+    bottom: 0,
+    right: 88,
+    ...aiButtonStyles,
+    bgcolor: 'rgba(255,193,7,0.1)',
+    color: '#ffc107',
+    borderColor: 'rgba(255,193,7,0.2)'
+};
+
 export const PublishView = () => {
     const {
         currentPost,
@@ -226,6 +237,9 @@ export const PublishView = () => {
     // AI Polish State
     const [polishDialogOpen, setPolishDialogOpen] = useState(false);
     const [polishTarget, setPolishTarget] = useState<'title' | 'content'>('title');
+
+    // Analyze Cover Image State
+    const [analyzeImageOpen, setAnalyzeImageOpen] = useState(false);
 
     // Trend Popover State
     const [trendAnchorEl, setTrendAnchorEl] = useState<null | HTMLElement>(null);
@@ -645,6 +659,17 @@ export const PublishView = () => {
                                 <Flame size={18} />
                             </IconButton>
                         </Tooltip>
+                        <Tooltip title={currentPost.coverImage ? "从封面图提取正文文案" : "请先设置封面图"}>
+                            <span>
+                                <IconButton
+                                    onClick={() => setAnalyzeImageOpen(true)}
+                                    disabled={!currentPost.coverImage}
+                                    sx={tertiaryIconButtonStyles}
+                                >
+                                    <ImageIcon size={18} />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
                     </Box>
 
                     <Divider sx={{ my: 3 }} />
@@ -723,6 +748,17 @@ export const PublishView = () => {
                     onSelectTrend={handleSelectTrend}
                     trends={trends}
                     trendsLoading={trendsLoading}
+                />
+
+                {/* Analyze Image Dialog for Cover */}
+                <AnalyzeImageDialog
+                    open={analyzeImageOpen}
+                    onClose={() => setAnalyzeImageOpen(false)}
+                    imagePath={currentPost.coverImage || ''}
+                    onInsert={(text) => {
+                        const current = currentPost.content || '';
+                        setCurrentPost({ content: current ? current + '\n\n' + text : text });
+                    }}
                 />
             </Box>
         </Box >

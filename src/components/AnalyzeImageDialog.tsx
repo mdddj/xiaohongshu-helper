@@ -21,12 +21,14 @@ interface AnalyzeImageDialogProps {
     open: boolean;
     onClose: () => void;
     imagePath: string;
+    onInsert?: (text: string) => void;
 }
 
 export const AnalyzeImageDialog = ({
     open,
     onClose,
-    imagePath
+    imagePath,
+    onInsert
 }: AnalyzeImageDialogProps) => {
     const { aiProviders, selectedTextModel, setSelectedTextModel, setActiveTab } = useAppStore();
     const [prompt, setPrompt] = useState('请提供一张小红书风格的配文，描述这张图片。');
@@ -127,9 +129,35 @@ export const AnalyzeImageDialog = ({
 
                     {result && (
                         <Box sx={{ p: 2, bgcolor: 'rgba(255,36,66,0.05)', borderRadius: 3, border: '1px solid rgba(255,36,66,0.1)' }}>
-                            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700, mb: 1, display: 'block' }}>
-                                分析结果
-                            </Typography>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                                <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                                    分析结果
+                                </Typography>
+                                <Stack direction="row" spacing={1}>
+                                    {onInsert && (
+                                        <Button
+                                            size="small"
+                                            onClick={() => {
+                                                onInsert(result);
+                                                onClose();
+                                            }}
+                                            sx={{ fontSize: '0.7rem', minWidth: 'auto', p: 0.5 }}
+                                        >
+                                            插入正文
+                                        </Button>
+                                    )}
+                                    <Button
+                                        size="small"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(result);
+                                            message('结果已复制到剪贴板', { title: '成功', kind: 'info' });
+                                        }}
+                                        sx={{ fontSize: '0.7rem', minWidth: 'auto', p: 0.5 }}
+                                    >
+                                        复制内容
+                                    </Button>
+                                </Stack>
+                            </Stack>
                             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                                 {result}
                             </Typography>
