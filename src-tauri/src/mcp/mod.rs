@@ -536,18 +536,15 @@ impl XhsMcpTools {
 
 impl ServerHandler for XhsMcpTools {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: Implementation {
-                name: "小红书 MCP".to_string(),
-                title: Some("小红书自动化创作助手 MCP 服务".to_string()),
-                version: "0.1".to_string(),
-                icons: None,
-                website_url: Some("https://itbug.shop".to_string()),
-            },
-            instructions: Some("小红书创作助手 MCP 服务".to_string()),
-        }
+        let implementation = Implementation::new("小红书 MCP", "0.1")
+            .with_title("小红书自动化创作助手 MCP 服务")
+            .with_description("小红书自动化创作助手")
+            .with_website_url("https://itbug.shop");
+
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(implementation)
+            .with_protocol_version(ProtocolVersion::LATEST)
+            .with_instructions("小红书创作助手 MCP 服务")
     }
 
     fn list_tools(
