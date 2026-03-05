@@ -56,7 +56,7 @@ schemars = "1"
 
 axum = { version = "0.8", features = ["macros"] }
 tokio-util = "0.7"
-rmcp = { version = "0.14", features = [
+rmcp = { version = "1", features = [
     "server",
     "macros",
     "transport-streamable-http-server",
