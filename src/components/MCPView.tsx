@@ -98,8 +98,9 @@ export const MCPView = () => {
     const handleCopyJson = () => {
         const config = {
             mcpServers: {
-                "xiaohongshu-helper": {
-                    url: `${connectionUrl}?token=${status.token || ''}`
+                "xhs": {
+                    url: connectionUrl,
+                    type: "streamableHttp"
                 }
             }
         };
@@ -314,7 +315,7 @@ export const MCPView = () => {
                         )}
                         <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 600 }}>
-                                连接 URL (SSE)
+                                连接 URL (Streamable HTTP)
                             </Typography>
                             <Box sx={{
                                 p: 1,
@@ -403,10 +404,10 @@ export const MCPView = () => {
                     </Box>
                 </Box>
 
-                {/* Claude Desktop Config */}
+                {/* Claude Desktop / Cline Config */}
                 <Box>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>Claude Desktop 配置</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 800 }}>Cline / Claude Desktop 配置</Typography>
                     </Stack>
                     <Paper sx={{
                         p: 0,
@@ -428,7 +429,7 @@ export const MCPView = () => {
                             alignItems: 'center'
                         }}>
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-                                claude_desktop_config.json
+                                cline_mcp_settings.json
                             </Typography>
                             <Button
                                 size="small"
@@ -450,8 +451,9 @@ export const MCPView = () => {
                             }}>
                                 {`{
   "mcpServers": {
-    "xiaohongshu-helper": {
-      "url": "${connectionUrl}"
+    "xhs": {
+      "url": "${connectionUrl}",
+      "type": "streamableHttp"
     }
   }
 }`}

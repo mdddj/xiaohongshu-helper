@@ -70,28 +70,37 @@ fn extract_token_from_header(headers: &HeaderMap) -> Option<String> {
 // Authorization middleware
 async fn auth_middleware(
     State(token_store): State<Arc<TokenStore>>,
-    request: axum::extract::Request,
+    mut request: axum::extract::Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    let path = request.uri().path().to_string();
+
+    // 1. 放行健康检查
+    if path == "/health" {
+        return Ok(next.run(request).await);
+    }
+
     let headers = request.headers();
 
-    // 1. 优先尝试从 Header 获取 (Bearer)
+    // 2. 尝试从 Header 获取 (Bearer)
     let mut token = extract_token_from_header(headers);
 
-    // 2. 如果 Header 没有，尝试从 Path 获取 (格式: /mcp/TOKEN)
+    // 3. 尝试从 URL Path 获取
+    let mut token_segment_found = false;
     if token.is_none() {
-        let path = request.uri().path();
-        // 匹配 /mcp/TOKEN/...
-        if path.starts_with("/mcp/") {
-            let parts: Vec<&str> = path.split('/').collect();
-            // path 是 /mcp/TOKEN 所以 split 结果是 ["", "mcp", "TOKEN"]
-            if parts.len() >= 3 && !parts[2].is_empty() {
-                token = Some(parts[2].to_string());
+        let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        // 因为我们在 /mcp 嵌套了路由，所以对内层 router 来说，
+        // 如果路径是 /TOKEN/sse，segments[0] 就是 TOKEN。
+        if !segments.is_empty() {
+            let first_segment = segments[0];
+            if token_store.is_valid(first_segment) {
+                token = Some(first_segment.to_string());
+                token_segment_found = true;
             }
         }
     }
 
-    // 3. 兜底尝试从 Query 获取
+    // 4. 尝试从 Query 获取
     if token.is_none() {
         if let Some(query) = request.uri().query() {
             let params: std::collections::HashMap<String, String> =
@@ -102,15 +111,43 @@ async fn auth_middleware(
 
     match token {
         Some(t) if token_store.is_valid(&t) => {
-            // Token is valid, proceed with the request
+            // 如果是在路径中解析出的 Token，剥离后继续，否则 rmcp (fallback) 处理会报 400
+            if token_segment_found {
+                let mut uri_parts = request.uri().clone().into_parts();
+                let current_path = uri_parts
+                    .path_and_query
+                    .as_ref()
+                    .map(|pq| pq.path())
+                    .unwrap_or("");
+                let query = uri_parts.path_and_query.as_ref().and_then(|pq| pq.query());
+
+                // 剥离第一个 segment
+                // 例: /TOKEN/sse -> /sse
+                let segments: Vec<&str> =
+                    current_path.split('/').filter(|s| !s.is_empty()).collect();
+                let new_path = if segments.len() > 1 {
+                    format!("/{}", segments[1..].join("/"))
+                } else {
+                    "/".to_string()
+                };
+
+                let new_path_and_query = if let Some(q) = query {
+                    format!("{}?{}", new_path, q)
+                } else {
+                    new_path
+                };
+
+                uri_parts.path_and_query = Some(new_path_and_query.parse().unwrap());
+                *request.uri_mut() = axum::http::Uri::from_parts(uri_parts).unwrap();
+            }
             Ok(next.run(request).await)
         }
         _ => {
-            // Token is invalid, return 401 error
             println!(
-                "MCP: Unauthorized access attempt (Method: {}, URI: {})",
+                "MCP Auth Failed: Method={}, Path={}, TokenFound={}",
                 request.method(),
-                request.uri()
+                path,
+                token.is_some()
             );
             Err(StatusCode::UNAUTHORIZED)
         }
@@ -601,14 +638,18 @@ pub async fn start_mcp_server(port: u16, token: Option<String>) -> Result<(), St
         StreamableHttpServerConfig::default(),
     );
     // 使用 Axum
+    // 采用单一端点配置，通过中间件处理 URL 路径中的 Token 剥离
     let app = axum::Router::new()
         .route("/health", get(health_check))
-        // 使用动态路径支持鉴权信息持久化在 URL 中
-        .nest_service("/mcp", service)
-        .layer(middleware::from_fn_with_state(
-            token_store.clone(),
-            auth_middleware,
-        ))
+        .nest_service(
+            "/mcp",
+            axum::Router::new()
+                .fallback_service(service) // 处理 Streamable HTTP 请求
+                .layer(middleware::from_fn_with_state(
+                    token_store.clone(),
+                    auth_middleware,
+                )),
+        )
         .layer(CorsLayer::permissive());
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
