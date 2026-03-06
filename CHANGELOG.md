@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.0.4
+- feat: 改进 MCP 服务认证逻辑，支持从 URL 路径中提取并剥离 Token，并更新前端配置以匹配新的 Streamable HTTP 规范。 (65bae29)
+- refactor: 重构 `get_info` 方法，使用构建器模式初始化 `ServerInfo`。 (7cf9977)
+- chore: Update rmcp dependency to version 1 (63902dd)
+
 ## v0.0.3
 - docs: 更新项目说明文档。 (ab453f9)
 - feat: 新增了导入网络图片到本地素材库的功能。 (c5731a1)
