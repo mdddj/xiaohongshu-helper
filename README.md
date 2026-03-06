@@ -6,6 +6,11 @@ This template should help get you started developing with Tauri, React and Types
 
 - [VS Code](https://code.visualstudio.com/) + [Tauri](https://v2.tauri.app/) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
+## ⏬ 下载安装
+
+目前提供了 Windows、macOS 和 Linux 系统的安装程序。你可以前往 Releases 页面获取最新的版本：
+- [点击此处下载最新版 (GitHub Releases)](https://github.com/mdddj/xiaohongshu-helper/releases)
+
 
 ## 运行程序
 下载源码,安装 rust,node,然后运行
